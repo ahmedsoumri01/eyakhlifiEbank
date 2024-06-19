@@ -1,6 +1,7 @@
 package com.eya.pfe2.eyapfe2.Controllers;
 
 import com.eya.pfe2.eyapfe2.Models.DTO.FactureDTO;
+import com.eya.pfe2.eyapfe2.Models.DTO.SendedFactureDTO;
 import com.eya.pfe2.eyapfe2.Service.FactureService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,8 +38,8 @@ public class FactureController {
     }
 
     @PostMapping("/pay/{id}")
-    public ResponseEntity<FactureDTO> payFacture(@PathVariable Long id, @RequestParam Long compteId) {
-        FactureDTO facture = factureService.payFacture(id, compteId);
+    public ResponseEntity<SendedFactureDTO> payFacture(@PathVariable Long id, @RequestParam Long compteId) {
+        SendedFactureDTO facture = factureService.payFacture(id, compteId);
         if (facture != null) {
             return ResponseEntity.ok(facture);
         } else {
