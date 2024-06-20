@@ -12,10 +12,13 @@ import com.eya.pfe2.eyapfe2.Repository.CompteRepository;
 import com.eya.pfe2.eyapfe2.Repository.MandatRepository;
 import com.eya.pfe2.eyapfe2.Repository.UserRepository;
 import com.eya.pfe2.eyapfe2.Service.EmailService;
+import com.eya.pfe2.eyapfe2.config.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.SecureRandom;
@@ -33,6 +36,8 @@ public class ClientController {
     private final CompteRepository compteRepository;
     private final MandatRepository mandatRepository;
     private final EmailService emailService;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
     @GetMapping("/profile")
     public ResponseEntity<UserDTO> getClientProfile() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -47,6 +52,45 @@ public class ClientController {
             return ResponseEntity.notFound().build();
         }
     }
+    @PutMapping("/update-profile")// this for update the user profile , if you entered new password he changed the old one by the new one
+    public ResponseEntity<Map<String, String>> updateProfile(@RequestBody Map<String, String> updates) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        Optional<User> userOptional = userRepository.findByEmail(email);
+
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+
+            if (updates.containsKey("nom")) {
+                user.setNom(updates.get("nom"));
+            }
+            if (updates.containsKey("prenom")) {
+                user.setPrenom(updates.get("prenom"));
+            }
+            if (updates.containsKey("dateNaissance")) {
+                user.setDateNaissance(new Date(Long.parseLong(updates.get("dateNaissance"))));
+            }
+            if (updates.containsKey("telephone")) {
+                user.setTelephone(updates.get("telephone"));
+            }
+            if (updates.containsKey("email")) {
+                user.setEmail(updates.get("email"));
+            }
+            if (updates.containsKey("password")) {
+                String newPassword = updates.get("password");
+                if (!newPassword.isEmpty()) {
+                    user.setPassword(passwordEncoder.encode(newPassword));
+                }
+            }
+
+            userRepository.save(user);
+            String newToken = jwtTokenProvider.generateToken(user.getEmail());
+            return ResponseEntity.ok(Map.of("message", "Profile updated successfully", "token", newToken));
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
 
     @PostMapping("/create-compte")
     public ResponseEntity<Map<String, String>> createCompte(@RequestBody Map<String, String> request) {

@@ -22,99 +22,84 @@ public class TransactionService {
     private final CompteRepository compteRepository;
     private final TransactionRepository transactionRepository;
 
-    @Transactional
     public String virement(VirementDTO virementDTO) {
-        Optional<Compte> fromCompteOpt = compteRepository.findByNumCompte(virementDTO.getFromCompte());
-        Optional<Compte> toCompteOpt = compteRepository.findByNumCompte(virementDTO.getToCompte());
+        Compte fromCompte = compteRepository.findByNumCompte(virementDTO.getFromCompte())
+                .orElseThrow(() -> new IllegalArgumentException("Sender account not found."));
+        Compte toCompte = compteRepository.findByNumCompte(virementDTO.getToCompte())
+                .orElseThrow(() -> new IllegalArgumentException("Receiver account not found."));
 
-        if (fromCompteOpt.isPresent() && toCompteOpt.isPresent()) {
-            Compte fromCompte = fromCompteOpt.get();
-            Compte toCompte = toCompteOpt.get();
-
-            if (fromCompte.getSolde() >= virementDTO.getMontant()) {
-                fromCompte.setSolde(fromCompte.getSolde() - virementDTO.getMontant());
-                toCompte.setSolde(toCompte.getSolde() + virementDTO.getMontant());
-
-                Transaction fromTransaction = new Transaction();
-                fromTransaction.setCompte(fromCompte);
-                fromTransaction.setDate(new Date());
-                fromTransaction.setMontant(virementDTO.getMontant());
-                fromTransaction.setType(TransactionType.VIREMENT);
-                transactionRepository.save(fromTransaction);
-
-                Transaction toTransaction = new Transaction();
-                toTransaction.setCompte(toCompte);
-                toTransaction.setDate(new Date());
-                toTransaction.setMontant(virementDTO.getMontant());
-                toTransaction.setType(TransactionType.VIREMENT);
-                transactionRepository.save(toTransaction);
-
-                compteRepository.save(fromCompte);
-                compteRepository.save(toCompte);
-
-                return "Virement effectué avec succès.";
-            } else {
-                return "Solde insuffisant.";
-            }
-        } else {
-            return "Compte non trouvé.";
+        if (!isActive(fromCompte) || !isActive(toCompte)) {
+            return "One or both accounts are inactive.";
         }
+
+        if (fromCompte.getSolde() < virementDTO.getMontant()) {
+            return "Insufficient balance.";
+        }
+
+        fromCompte.setSolde(fromCompte.getSolde() - virementDTO.getMontant());
+        toCompte.setSolde(toCompte.getSolde() + virementDTO.getMontant());
+
+        compteRepository.save(fromCompte);
+        compteRepository.save(toCompte);
+
+        saveTransaction(fromCompte, virementDTO.getMontant(), TransactionType.VIREMENT);
+        saveTransaction(toCompte, virementDTO.getMontant(), TransactionType.VIREMENT);
+
+        return "Virement successful.";
     }
 
-    @Transactional
     public String versement(VersementDTO versementDTO) {
-        Optional<Compte> compteOpt = compteRepository.findByNumCompte(versementDTO.getNumCompte());
+        Compte compte = compteRepository.findByNumCompte(versementDTO.getNumCompte())
+                .orElseThrow(() -> new IllegalArgumentException("Account not found."));
 
-        if (compteOpt.isPresent()) {
-            Compte compte = compteOpt.get();
-            compte.setSolde(compte.getSolde() + versementDTO.getMontant());
-
-            Transaction transaction = new Transaction();
-            transaction.setCompte(compte);
-            transaction.setDate(new Date());
-            transaction.setMontant(versementDTO.getMontant());
-            transaction.setType(TransactionType.VERSEMENT);
-            transactionRepository.save(transaction);
-
-            compteRepository.save(compte);
-
-            return "Versement effectué avec succès.";
-        } else {
-            return "Compte non trouvé.";
+        if (!isActive(compte)) {
+            return "Account is inactive.";
         }
+
+        compte.setSolde(compte.getSolde() + versementDTO.getMontant());
+        compteRepository.save(compte);
+
+        saveTransaction(compte, versementDTO.getMontant(), TransactionType.VERSEMENT);
+
+        return "Versement successful.";
     }
 
-    @Transactional
     public String retrait(RetraitDTO retraitDTO) {
-        Optional<Compte> compteOpt = compteRepository.findByNumCompte(retraitDTO.getNumCompte());
+        Compte compte = compteRepository.findByNumCompte(retraitDTO.getNumCompte())
+                .orElseThrow(() -> new IllegalArgumentException("Account not found."));
 
-        if (compteOpt.isPresent()) {
-            Compte compte = compteOpt.get();
-
-            if (compte.getSolde() >= retraitDTO.getMontant()) {
-                compte.setSolde(compte.getSolde() - retraitDTO.getMontant());
-
-                Transaction transaction = new Transaction();
-                transaction.setCompte(compte);
-                transaction.setDate(new Date());
-                transaction.setMontant(retraitDTO.getMontant());
-                transaction.setType(TransactionType.RETRAIT);
-                transactionRepository.save(transaction);
-
-                compteRepository.save(compte);
-
-                return "Retrait effectué avec succès.";
-            } else {
-                return "Solde insuffisant.";
-            }
-        } else {
-            return "Compte non trouvé.";
+        if (!isActive(compte)) {
+            return "Account is inactive.";
         }
+
+        if (compte.getSolde() < retraitDTO.getMontant()) {
+            return "Insufficient balance.";
+        }
+
+        compte.setSolde(compte.getSolde() - retraitDTO.getMontant());
+        compteRepository.save(compte);
+
+        saveTransaction(compte, retraitDTO.getMontant(), TransactionType.RETRAIT);
+
+        return "Retrait successful.";
     }
 
     public List<Transaction> getTransactionsByCompte(String numCompte) {
-        Optional<Compte> compteOpt = compteRepository.findByNumCompte(numCompte);
+        Compte compte = compteRepository.findByNumCompte(numCompte)
+                .orElseThrow(() -> new IllegalArgumentException("Account not found."));
+        return transactionRepository.findByCompte(compte);
+    }
 
-        return compteOpt.map(Compte::getTransactions).orElse(List.of());
+    private boolean isActive(Compte compte) {
+        return "ACTIVE".equalsIgnoreCase(compte.getEtat());
+    }
+
+    private void saveTransaction(Compte compte, double montant, TransactionType type) {
+        Transaction transaction = new Transaction();
+        transaction.setDate(new Date());
+        transaction.setMontant(montant);
+        transaction.setType(type);
+        transaction.setCompte(compte);
+        transactionRepository.save(transaction);
     }
 }

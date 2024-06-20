@@ -46,7 +46,6 @@ public class TransactionController {
                 .collect(Collectors.toList());
         return ResponseEntity.ok(transactionDTOs);
     }
-
 }
 
 

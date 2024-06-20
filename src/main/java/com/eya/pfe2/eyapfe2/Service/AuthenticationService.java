@@ -75,7 +75,7 @@ public class AuthenticationService {
             defaultAdmin.setNom("Default");
             defaultAdmin.setPrenom("Admin");
             defaultAdmin.setDateNaissance(new Date());
-            defaultAdmin.setTelephone("0000000000");
+            defaultAdmin.setTelephone("123456789");
             defaultAdmin.setEmail("admin@ebank.com");
             defaultAdmin.setPassword(passwordEncoder.encode("admin"));
             defaultAdmin.setRole(Role.ADMIN);

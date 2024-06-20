@@ -26,6 +26,15 @@ public class JwtTokenProvider {
                 .signWith(secretKey)
                 .compact();
     }
+    // New method to generate token with email
+    public String generateToken(String email) {
+        return Jwts.builder()
+                .setSubject(email)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(secretKey)
+                .compact();
+    }
 
     public boolean validateToken(String token, UserDetails userDetails) {
         final String username = getUsernameFromToken(token);
